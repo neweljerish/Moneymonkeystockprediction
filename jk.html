@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Trend Prediction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            font-weight: 600;
+            margin: 0;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            margin: 20px 0;
+        }
+        label, input, select {
+            display: block;
+            margin: 10px 0;
+        }
+        input, select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 25px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result-container {
+            border: 3px solid #333;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stock Trend Prediction</h1>
+    <form id="stock-form">
+        <label for="ticker">Stock Ticker:</label>
+        <input type="text" id="ticker" name="ticker" required><br>
+        <label for="start_date">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="start_date" name="start_date" required><br>
+        <label for="end_date">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="end_date" name="end_date" required><br>
+        <label for="investment_start_date">Investment Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="investment_start_date" name="investment_start_date" required><br>
+        <label for="investment_end_date">Investment End Date (YYYY-MM-DD):</label>
+        <input type="date" id="investment_end_date" name="investment_end_date" required><br>
+        <button type="submit">Submit</button>
+    </form>
+    <div id="result" class="result-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/regression/1.4.1/regression.min.js"></script>
+    <script>
+        document.getElementById('stock-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const ticker = document.getElementById('ticker').value;
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+            const investmentStartDate = document.getElementById('investment_start_date').value;
+            const investmentEndDate = document.getElementById('investment_end_date').value;
+
+            const stockData = await fetchStockData(ticker, startDate, endDate);
+            const trend = predictStockTrend(stockData, new Date(investmentEndDate));
+
+            document.getElementById('result').innerHTML = `
+                <div class="result-container">
+                    <p>Predicted Stock Trend: ${trend}</p>
+                </div>
+            `;
+        });
+
+        async function fetchStockData(ticker, startDate, endDate) {
+            try {
+                const response = await fetch(`https://query1.finance.yahoo.com/v7/finance/download/${ticker}?period1=${Math.floor(new Date(startDate).getTime() / 1000)}&period2=${Math.floor(new Date(endDate).getTime() / 1000)}&interval=1d&events=history`);
+                const data = await response.text();
+                const rows = data.split('\n').slice(1);
+                return rows.map(row => {
+                    const [date, , , , close] = row.split(',');
+                    return { date: new Date(date), close: parseFloat(close) };
+                });
+            } catch (error) {
+                console.error('Error fetching stock data:', error);
+                return [];
+            }
+        }
+
+        function predictStockTrend(data, investmentEndDate) {
+            if (data.length === 0) {
+                return 'No data available';
+            }
+
+            const dates = data.map(d => d.date.getTime());
+            const prices = data.map(d => d.close);
+
+            const regression = new regression.LinearRegression(dates, prices);
+            const nextDayIndex = investmentEndDate.getTime() + 24 * 60 * 60 * 1000;
+            const predictedPrice = regression.predict(nextDayIndex);
+
+            const trend = predictedPrice > prices[prices.length - 1] ? 'Up' : 'Down';
+            return trend;
+        }
+    </script>
+</body>
+</html>
+
+
